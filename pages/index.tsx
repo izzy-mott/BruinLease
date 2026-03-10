@@ -53,36 +53,60 @@ export default function HomePage() {
 
   return (
     <Layout>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Summer Sublease Marketplace</h1>
-          <p className="mt-1 text-sm text-zinc-600">
-            UCLA-focused listings for Westwood and nearby. Use filters to narrow results.
-          </p>
-        </div>
-        <div className="text-sm text-zinc-600">{activeFilterCount ? `${activeFilterCount} filters` : "All listings"}</div>
-      </div>
-
-      <div className="mt-5">
-        <FiltersBar value={filters} onChange={setFilters} onSearch={fetchListings} />
-      </div>
-
-      <div className="mt-6">
-        {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>
-        ) : loading ? (
-          <div className="text-sm text-zinc-600">Loading listings…</div>
-        ) : listings.length === 0 ? (
-          <div className="rounded-xl border border-zinc-200 bg-white p-6 text-sm text-zinc-700">
-            No listings matched your search.
+      <div className="flex flex-col gap-6">
+        <section className="flex flex-col items-start justify-between gap-4 border-b border-dashed border-zinc-200 pb-4 md:flex-row md:items-end">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+              Summer Sublease Marketplace
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-zinc-600 md:text-[15px]">
+              Discover UCLA-focused summer subleases in Westwood and nearby neighborhoods. Use flexible
+              filters to quickly zero in on the right place for your dates and budget.
+            </p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {listings.map((l) => (
-              <ListingCard key={l.id} listing={l} />
-            ))}
+          <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+            <span>{activeFilterCount ? `${activeFilterCount} active filter${activeFilterCount > 1 ? "s" : ""}` : "Showing all listings"}</span>
           </div>
-        )}
+        </section>
+
+        <section>
+          <FiltersBar value={filters} onChange={setFilters} onSearch={fetchListings} />
+        </section>
+
+        <section aria-live="polite" className="mt-2">
+          {error ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : loading ? (
+            <div className="flex items-center gap-2 text-sm text-zinc-600">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+              <span>Loading listings…</span>
+            </div>
+          ) : listings.length === 0 ? (
+            <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-zinc-200 bg-white px-6 py-8 text-center">
+              <div className="text-sm font-medium text-zinc-900">No listings match your filters yet</div>
+              <p className="mt-2 max-w-md text-sm text-zinc-600">
+                Try widening your price range, selecting &quot;Any&quot; bedrooms, or adjusting the lease
+                start date to see more options.
+              </p>
+              <button
+                type="button"
+                className="mt-4 inline-flex items-center justify-center rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm transition hover:bg-zinc-50"
+                onClick={() => setFilters({})}
+              >
+                Clear all filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {listings.map((l) => (
+                <ListingCard key={l.id} listing={l} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
     </Layout>
   );
