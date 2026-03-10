@@ -1,6 +1,7 @@
 import { GetServerSideProps } from "next";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/lib/supabaseClient";
 import { Listing } from "@/lib/types";
@@ -8,10 +9,45 @@ import { formatDate, formatMoneyUSD } from "@/lib/format";
 import { track } from "@/lib/analytics";
 
 export default function ListingDetailPage({ listing }: { listing: Listing | null }) {
+  const router = useRouter();
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!listing) return;
     track("listing_viewed", { listing_id: listing.id, price: listing.price, bedrooms: listing.bedrooms });
   }, [listing]);
+
+  useEffect(() => {
+    if (!listing) return;
+    let cancelled = false;
+    void (async () => {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+      if (!cancelled) {
+        setCanDelete(!!user?.id && user.id === listing.user_id);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [listing]);
+
+  async function handleDelete() {
+    if (!listing) return;
+    if (!window.confirm("Are you sure you want to delete this listing? This cannot be undone.")) return;
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await supabase.from("listings").delete().eq("id", listing.id);
+    if (error) {
+      setDeleteError(error.message);
+      setDeleting(false);
+      return;
+    }
+    await router.push("/");
+  }
 
   if (!listing) {
     return (
@@ -29,14 +65,14 @@ export default function ListingDetailPage({ listing }: { listing: Listing | null
 
   const mailto = `mailto:${encodeURIComponent(listing.contact_email)}?subject=${encodeURIComponent(
     "BruinLease Sublease Inquiry"
-  )}&body=${encodeURIComponent(`Hi! I'm interested in your listing in ${listing.location}.\n\nIs it still available?`)}`;
+  )}&body=${encodeURIComponent(`Hi! I'm interested in your listing at ${listing.address}.\n\nIs it still available?`)}`;
 
   return (
     <Layout>
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm text-zinc-600">Listing</div>
-          <h1 className="text-2xl font-semibold tracking-tight">{listing.location}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{listing.address}</h1>
           <div className="mt-2 text-sm text-zinc-700">
             {listing.bedrooms} bd · {listing.bathrooms} ba · {formatMoneyUSD(listing.price)}/mo
           </div>
@@ -44,13 +80,31 @@ export default function ListingDetailPage({ listing }: { listing: Listing | null
             {formatDate(listing.lease_start)} → {formatDate(listing.lease_end)}
           </div>
         </div>
-        <a
-          href={mailto}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Contact Poster
-        </a>
+        <div className="flex items-center gap-2">
+          {canDelete && (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+            >
+              {deleting ? "Deleting…" : "Delete listing"}
+            </button>
+          )}
+          <a
+            href={mailto}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Contact Poster
+          </a>
+        </div>
       </div>
+
+      {deleteError ? (
+        <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          {deleteError}
+        </div>
+      ) : null}
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="md:col-span-2 space-y-4">
@@ -59,7 +113,7 @@ export default function ListingDetailPage({ listing }: { listing: Listing | null
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={listing.image_urls[0]}
-                alt={listing.location}
+                alt={listing.address}
                 className="h-64 w-full object-cover md:h-80"
               />
             </div>

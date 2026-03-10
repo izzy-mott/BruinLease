@@ -16,7 +16,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={coverImage}
-            alt={listing.location}
+            alt={listing.address}
             className="h-full w-full object-cover"
             loading="lazy"
           />
@@ -37,7 +37,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-zinc-900">{listing.location}</div>
+            <div className="text-sm font-semibold text-zinc-900">{listing.address}</div>
             <div className="mt-1 text-xs text-zinc-600">
               {listing.bedrooms} bd · {listing.bathrooms} ba
             </div>

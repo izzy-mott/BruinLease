@@ -21,7 +21,7 @@ const responseSchema = z.object({
       price: z.number().int().positive().optional(),
       bedrooms: z.number().int().nonnegative().optional(),
       bathrooms: z.number().int().nonnegative().optional(),
-      location: z.string().min(1).optional(),
+      address: z.string().min(1).optional(),
       lease_start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       lease_end: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
     })
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             price: "optional integer monthly USD",
             bedrooms: "optional integer (0 for studio allowed)",
             bathrooms: "optional integer",
-            location: "optional text",
+            address: "optional text",
             lease_start: "optional YYYY-MM-DD",
             lease_end: "optional YYYY-MM-DD"
           }

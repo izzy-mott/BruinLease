@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Layout } from "@/components/Layout";
 import { ListingCard } from "@/components/ListingCard";
 import { FiltersBar, FiltersState } from "@/components/FiltersBar";
+import { ListingsMap } from "@/components/ListingsMap";
 import { supabase } from "@/lib/supabaseClient";
 import { Listing } from "@/lib/types";
 import { track } from "@/lib/analytics";
@@ -73,6 +74,12 @@ export default function HomePage() {
         <section>
           <FiltersBar value={filters} onChange={setFilters} onSearch={fetchListings} />
         </section>
+
+        {!loading && listings.length > 0 && (
+          <section className="-mt-1">
+            <ListingsMap listings={listings} />
+          </section>
+        )}
 
         <section aria-live="polite" className="mt-2">
           {error ? (

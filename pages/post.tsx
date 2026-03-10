@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { supabase } from "@/lib/supabaseClient";
@@ -7,7 +7,14 @@ import { track } from "@/lib/analytics";
 
 type GeneratorResult = {
   description: string;
-  parsed?: Partial<Pick<ListingInsert, "price" | "bedrooms" | "bathrooms" | "location" | "lease_start" | "lease_end">>;
+  parsed?: Partial<Pick<ListingInsert, "price" | "bedrooms" | "bathrooms" | "address" | "lease_start" | "lease_end">>;
+};
+
+type AddressSuggestion = {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
 };
 
 export default function PostListingPage() {
@@ -22,27 +29,73 @@ export default function PostListingPage() {
   const [uploadingImages, setUploadingImages] = useState(false);
 
   const [form, setForm] = useState<ListingInsert>({
+    user_id: null,
+    address: "",
+    lat: null,
+    lng: null,
     price: 1200,
     bedrooms: 2,
     bathrooms: 2,
-    location: "",
     lease_start: "",
     lease_end: "",
     description: "",
-    contact_email: ""
+    contact_email: "",
+    image_urls: null
   });
+
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number } | null>(null);
 
   const canGenerate = useMemo(() => messy.trim().length > 0 && !generating, [messy, generating]);
   const canSubmit = useMemo(
     () =>
       !submitting &&
       !uploadingImages &&
-      !!form.location &&
+      !!form.address &&
       !!form.lease_start &&
       !!form.lease_end &&
       !!form.contact_email,
-    [submitting, uploadingImages, form.location, form.lease_start, form.lease_end, form.contact_email]
+    [submitting, uploadingImages, form.address, form.lease_start, form.lease_end, form.contact_email]
   );
+
+  useEffect(() => {
+    if (!form.address || form.address.trim().length < 3) {
+      setAddressSuggestions([]);
+      setAddressLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      try {
+        setAddressLoading(true);
+        const res = await fetch(`/api/places?q=${encodeURIComponent(form.address)}`, {
+          signal: controller.signal
+        });
+        if (!res.ok) {
+          setAddressSuggestions([]);
+          setAddressLoading(false);
+          return;
+        }
+        const json = (await res.json()) as { suggestions: AddressSuggestion[] };
+        setAddressSuggestions(json.suggestions ?? []);
+      } catch {
+        if (!controller.signal.aborted) {
+          setAddressSuggestions([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setAddressLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [form.address]);
 
   async function onGenerate() {
     if (!canGenerate) return;
@@ -66,7 +119,7 @@ export default function PostListingPage() {
         ...(result.parsed?.price ? { price: result.parsed.price } : {}),
         ...(typeof result.parsed?.bedrooms === "number" ? { bedrooms: result.parsed.bedrooms } : {}),
         ...(typeof result.parsed?.bathrooms === "number" ? { bathrooms: result.parsed.bathrooms } : {}),
-        ...(result.parsed?.location ? { location: result.parsed.location } : {}),
+        ...(result.parsed?.address ? { address: result.parsed.address } : {}),
         ...(result.parsed?.lease_start ? { lease_start: result.parsed.lease_start } : {}),
         ...(result.parsed?.lease_end ? { lease_end: result.parsed.lease_end } : {})
       }));
@@ -84,6 +137,14 @@ export default function PostListingPage() {
     setError(null);
 
     try {
+      let lat: number | null = null;
+      let lng: number | null = null;
+
+      if (selectedCoords) {
+        lat = selectedCoords.lat;
+        lng = selectedCoords.lng;
+      }
+
       let imageUrls: string[] | undefined;
 
       if (files && files.length > 0) {
@@ -108,9 +169,15 @@ export default function PostListingPage() {
         imageUrls = uploads;
       }
 
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
       const payload: ListingInsert = {
         ...form,
-        ...(imageUrls ? { image_urls: imageUrls } : {})
+        ...(imageUrls ? { image_urls: imageUrls } : {}),
+        ...(lat !== null && lng !== null ? { lat, lng } : {}),
+        ...(user?.id ? { user_id: user.id } : {})
       };
 
       const { data, error } = await supabase.from("listings").insert(payload).select("id").single();
@@ -169,14 +236,38 @@ export default function PostListingPage() {
               onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-zinc-700">Location</label>
+          <div className="relative">
+            <label className="block text-xs font-medium text-zinc-700">Address</label>
             <input
               className="mt-1 w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
-              placeholder="Westwood, Midvale Ave, etc."
-              value={form.location}
-              onChange={(e) => setForm({ ...form, location: e.target.value })}
+              placeholder="Street, building, or address near UCLA"
+              value={form.address}
+              onChange={(e) => {
+                setSelectedCoords(null);
+                setForm({ ...form, address: e.target.value });
+              }}
             />
+            {addressLoading && (
+              <div className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+            )}
+            {addressSuggestions.length > 0 && (
+              <div className="absolute z-20 mt-1 max-h-52 w-full overflow-auto rounded-lg border border-zinc-200 bg-white py-1 text-sm shadow-lg">
+                {addressSuggestions.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className="block w-full px-3 py-1.5 text-left text-xs text-zinc-800 hover:bg-zinc-50"
+                    onClick={() => {
+                      setForm({ ...form, address: s.label });
+                      setSelectedCoords({ lat: s.lat, lng: s.lng });
+                      setAddressSuggestions([]);
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-xs font-medium text-zinc-700">Bedrooms</label>

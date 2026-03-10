@@ -14,7 +14,8 @@ const publicSchema = z.object({
 });
 
 const serverOnlySchema = z.object({
-  OPENAI_API_KEY: z.string().min(1).optional()
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  MAPBOX_ACCESS_TOKEN: z.string().min(1).optional()
 });
 
 export const publicEnv = publicSchema.parse({
@@ -25,6 +26,7 @@ export const publicEnv = publicSchema.parse({
 });
 
 export const serverOnlyEnv = serverOnlySchema.parse({
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+  MAPBOX_ACCESS_TOKEN: process.env.MAPBOX_ACCESS_TOKEN
 });
 

@@ -1,9 +1,12 @@
 export type Listing = {
   id: string;
+  user_id: string | null;
   price: number;
   bedrooms: number;
   bathrooms: number;
-  location: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
   lease_start: string; // ISO date (YYYY-MM-DD)
   lease_end: string; // ISO date (YYYY-MM-DD)
   description: string;
