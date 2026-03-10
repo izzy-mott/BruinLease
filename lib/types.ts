@@ -8,6 +8,7 @@ export type Listing = {
   lease_end: string; // ISO date (YYYY-MM-DD)
   description: string;
   contact_email: string;
+  image_urls?: string[] | null;
   created_at: string; // ISO timestamp
 };
 

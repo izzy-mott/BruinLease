@@ -18,6 +18,9 @@ export default function PostListingPage() {
   const [messy, setMessy] = useState("");
   const [generating, setGenerating] = useState(false);
 
+  const [files, setFiles] = useState<FileList | null>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
   const [form, setForm] = useState<ListingInsert>({
     price: 1200,
     bedrooms: 2,
@@ -30,13 +33,16 @@ export default function PostListingPage() {
   });
 
   const canGenerate = useMemo(() => messy.trim().length > 0 && !generating, [messy, generating]);
-  const canSubmit = useMemo(() => !submitting && !!form.location && !!form.lease_start && !!form.lease_end && !!form.contact_email, [
-    submitting,
-    form.location,
-    form.lease_start,
-    form.lease_end,
-    form.contact_email
-  ]);
+  const canSubmit = useMemo(
+    () =>
+      !submitting &&
+      !uploadingImages &&
+      !!form.location &&
+      !!form.lease_start &&
+      !!form.lease_end &&
+      !!form.contact_email,
+    [submitting, uploadingImages, form.location, form.lease_start, form.lease_end, form.contact_email]
+  );
 
   async function onGenerate() {
     if (!canGenerate) return;
@@ -77,16 +83,51 @@ export default function PostListingPage() {
     setSubmitting(true);
     setError(null);
 
-    const { data, error } = await supabase.from("listings").insert(form).select("id").single();
+    try {
+      let imageUrls: string[] | undefined;
 
-    if (error) {
-      setError(error.message);
+      if (files && files.length > 0) {
+        setUploadingImages(true);
+
+        const uploads = await Promise.all(
+          Array.from(files).map(async (file) => {
+            const fileExt = file.name.split(".").pop() || "jpg";
+            const path = `listing-images/${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+            const { error: uploadError } = await supabase.storage.from("listing-images").upload(path, file, {
+              cacheControl: "3600",
+              upsert: false
+            });
+            if (uploadError) throw uploadError;
+            const {
+              data: { publicUrl }
+            } = supabase.storage.from("listing-images").getPublicUrl(path);
+            return publicUrl;
+          })
+        );
+
+        imageUrls = uploads;
+      }
+
+      const payload: ListingInsert = {
+        ...form,
+        ...(imageUrls ? { image_urls: imageUrls } : {})
+      };
+
+      const { data, error } = await supabase.from("listings").insert(payload).select("id").single();
+
+      if (error) {
+        throw error;
+      }
+
+      track("listing_created", { listing_id: data.id, price: form.price, bedrooms: form.bedrooms });
+      await router.push(`/listing/${data.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create listing.");
       setSubmitting(false);
+      setUploadingImages(false);
       return;
     }
 
-    track("listing_created", { listing_id: data.id, price: form.price, bedrooms: form.bedrooms });
-    await router.push(`/listing/${data.id}`);
   }
 
   return (
@@ -191,6 +232,24 @@ export default function PostListingPage() {
               value={form.contact_email}
               onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
             />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-zinc-700">Listing photos</label>
+            <p className="mt-1 text-xs text-zinc-500">
+              Add one or more photos of the space (JPEG or PNG). First image will be used as the cover.
+            </p>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="mt-2 block w-full text-sm text-zinc-700 file:mr-3 file:rounded-lg file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-800 hover:file:bg-zinc-200"
+              onChange={(e) => setFiles(e.target.files)}
+            />
+            {files && files.length > 0 ? (
+              <div className="mt-2 text-xs text-zinc-600">
+                {files.length} file{files.length > 1 ? "s" : ""} selected
+              </div>
+            ) : null}
           </div>
         </div>
 

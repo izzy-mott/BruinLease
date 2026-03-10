@@ -53,7 +53,17 @@ export default function ListingDetailPage({ listing }: { listing: Listing | null
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="md:col-span-2">
+        <div className="md:col-span-2 space-y-4">
+          {Array.isArray(listing.image_urls) && listing.image_urls.length > 0 ? (
+            <div className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={listing.image_urls[0]}
+                alt={listing.location}
+                className="h-64 w-full object-cover md:h-80"
+              />
+            </div>
+          ) : null}
           <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
             <div className="text-sm font-semibold">Description</div>
             <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-zinc-700">{listing.description}</p>

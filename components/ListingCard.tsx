@@ -3,15 +3,28 @@ import { Listing } from "@/lib/types";
 import { formatDate, formatMoneyUSD } from "@/lib/format";
 
 export function ListingCard({ listing }: { listing: Listing }) {
+  const hasImage = Array.isArray(listing.image_urls) && listing.image_urls.length > 0;
+  const coverImage = hasImage ? listing.image_urls![0] : null;
+
   return (
     <Link
       href={`/listing/${listing.id}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm shadow-zinc-100 transition hover:-translate-y-1 hover:border-zinc-300 hover:shadow-md"
     >
       <div className="relative h-40 w-full bg-zinc-100">
-        <div className="absolute inset-0 flex items-center justify-center text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">
-          Photo coming soon
-        </div>
+        {coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={coverImage}
+            alt={listing.location}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-medium uppercase tracking-[0.18em] text-zinc-400">
+            Photo coming soon
+          </div>
+        )}
         <div className="absolute left-3 top-3 inline-flex items-center rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-zinc-900 shadow-sm">
           {formatMoneyUSD(listing.price)}
           <span className="ml-1 text-[11px] font-normal text-zinc-500">/mo</span>
